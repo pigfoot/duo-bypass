@@ -5,30 +5,36 @@ import pyotp
 import requests
 import base64
 import json
+import os
 import sys
-import cv2
 
-def readQR(filepath):
-  img = cv2.imread(qrFile.name)
-  detector = cv2.QRCodeDetector()
-  data, bbox, straight_qrcode = detector.detectAndDecode(img)
-  if bbox is not None and data != "":
-    print(f"QRCode data:\n{data}")
-  # if no QR code was detected by cv2 let the user input the QR value
-  else: 
-    print("No QR code detected in file.")
-    data = input("Please enter QR Code value manually: ")
-  return data
+# get $XDG_DATA_HOME/duo-bypass or $HOME/.local/share/duo-bypass
+def getConfDir():
+  pkg_name = 'duo-bypass'
+
+  _home = os.path.expanduser('~')
+
+  # os.path.join(_home, '.local', 'share')
+  xdg_data_home = os.environ.get('XDG_DATA_HOME')
+  if xdg_data_home is not None:
+    _path = os.path.join(xdg_data_home, pkg_name)
+    if not os.path.isdir(_path):
+      os.makedirs(_path)
+
+    return _path
+
+  # os.path.join(_home, '.config')
+  xdg_config_home = os.environ.get('XDG_CONFIG_HOME') or \
+    os.path.join(_home, '.config')
+
+  _path = os.path.join(xdg_config_home, pkg_name)
+  if not os.path.isdir(_path):
+    os.makedirs(_path)
+
+  return _path
 
 
-qrFile = Path("qr.png")
-
-# if file exists read QR code. Else let the user input the QR value
-if qrFile.is_file():
-  data = readQR(qrFile.as_posix())
-else:
-  print(qrFile.as_posix()+" not found.")
-  data = input("Please enter QR Code value manually: ")
+data = input("Please enter QR Code value manually: ")
 
 
 #The QR Code is in the format: XXXXXXXXXX-YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
@@ -60,9 +66,9 @@ data = {'jailbroken': 'false',
         'app_version': '4.13.0',
         'app_build_number': '413000',
         'version': '12',
-        'manufacturer': 'unknown',
+        'manufacturer': 'Google',
         'language': 'en',
-        'model': 'unknown',
+        'model': 'Pixel 7a',
         'security_patch_level': '2022-04-01'}
 
 r = requests.post(url, headers=headers, data=data)
@@ -82,9 +88,11 @@ hotp = pyotp.HOTP(secret)
 for _ in range(10):
     print(hotp.at(_))
 
-with open('duotoken.hotp', 'w') as f:
+fn_hotp = os.path.join(getConfDir(), 'duotoken.hotp')
+with open(fn_hotp, 'w') as f:
     f.write(secret.decode() + "\n")
     f.write("0")
 
-with open('response.json', 'w') as resp:
+fn_response = os.path.join(getConfDir(), 'response.json')
+with open(fn_response, 'w') as resp:
     resp.write(r.text)
